@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  
+  <title>Elasticsearch 分布式部署 [ tech otaku in the world ]</title>
+  
+    <!-- stylesheets list from config.yml -->
+    
+      <link rel="stylesheet" href="/css/iLiKE.css">
+    
+  
+  
+  
+  <script src="//cdn1.lncld.net/static/js/3.1.1/av-min.js"></script>
+    <script id="leancloud">
+      AV.init({
+          appId: "6E5zTbTljdUbVW2WkXPsXGJk-gzGzoHsz",
+          appKey: "0vsyDKfNpeSECAI70J794ugv"
+      });
+    </script>
+
+<meta name="generator" content="Hexo 5.4.0"></head>
+<body>
+    <div class="header">
+        <div class="container">
+    <div class="menu">
+      <div class="menu-left">
+        <a href="/">
+          <img src="/favicon.ico"></img>
+        </a>
+      </div>
+      <div class="menu-right">
+        
+          
+          
+          
+          
+          
+          
+          <a href="/">首页</a>
+        
+          
+          
+          
+          
+          
+          
+          <a href="/archives">归档</a>
+        
+          
+          
+          
+          
+          
+          
+          <a href="/about">关于</a>
+        
+      </div>
+    </div>
+</div>
+    </div>
+    <div class="container">
+        <h1 class="post-title">Elasticsearch 分布式部署</h1>
+<article class="post markdown-style">
+  <h1 id="环境说明"><a href="#环境说明" class="headerlink" title="环境说明"></a>环境说明</h1><ol>
+<li><p>操作系统 CentOS 7，软件版本 Elasticsearch 7.12.2。</p>
+</li>
+<li><p>三台服务器，详情如下：</p>
+</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th align="center">ip</th>
+<th align="center">节点名</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">192.168.3.100</td>
+<td align="center">node-01</td>
+</tr>
+<tr>
+<td align="center">192.168.3.101</td>
+<td align="center">node-02</td>
+</tr>
+<tr>
+<td align="center">192.168.3.102</td>
+<td align="center">node-03</td>
+</tr>
+</tbody></table>
+<ol start="3">
+<li>以下步骤如无特殊说明，均为三台服务器上同样执行。</li>
+</ol>
+<h1 id="准备工作"><a href="#准备工作" class="headerlink" title="准备工作"></a>准备工作</h1><h3 id="创建-Elasticsearch-用户"><a href="#创建-Elasticsearch-用户" class="headerlink" title="创建 Elasticsearch 用户"></a>创建 Elasticsearch 用户</h3><p>因为 Elasticsearch 不允许通过 <code>root</code> 用户运行，需要首先创建用于运行 Elasticsearch 的用户。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 创建用户组 elastic</span></span><br><span class="line">groupadd elastic</span><br><span class="line"><span class="meta">#</span><span class="bash"> 创建用户</span></span><br><span class="line">adduser -g elastic elastic</span><br><span class="line"><span class="meta">#</span><span class="bash"> 设置密码</span></span><br><span class="line">passwd es</span><br><span class="line"><span class="meta">#</span><span class="bash"> 赋予 sudo 权限</span></span><br><span class="line">chmod +w /etc/sudoers</span><br><span class="line">vi /etc/sudoers</span><br><span class="line"><span class="meta">#</span><span class="bash"> 在打开的文件中添加如下行</span></span><br><span class="line">elastic ALL=(ALL) ALL</span><br><span class="line"><span class="meta">#</span><span class="bash"> 修改完成后恢复 /etc/sudoers 文件的原始权限</span></span><br><span class="line">chmod -w /etc/sudoers</span><br></pre></td></tr></table></figure>
+
+<h3 id="创建-Elasticsearch-相关目录"><a href="#创建-Elasticsearch-相关目录" class="headerlink" title="创建 Elasticsearch 相关目录"></a>创建 Elasticsearch 相关目录</h3><p>为了方便管理，可以提前建好 Elasticsearch 相关目录。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> data 目录</span></span><br><span class="line">mkdir /opt/elastic/data</span><br><span class="line"><span class="meta">#</span><span class="bash"> logs 目录</span></span><br><span class="line">mkdir /opt/elastic/logs</span><br><span class="line"><span class="meta">#</span><span class="bash"> 更改所有者</span></span><br><span class="line">chmod -R elastic:elastic /opt/elastic</span><br></pre></td></tr></table></figure>
+
+<h3 id="防火墙相关"><a href="#防火墙相关" class="headerlink" title="防火墙相关"></a>防火墙相关</h3><p>保证端口开放可以访问即可，具体操作可查看各发行版防火墙文档。</p>
+<h1 id="安装-Elasticsearch"><a href="#安装-Elasticsearch" class="headerlink" title="安装 Elasticsearch"></a>安装 Elasticsearch</h1><h3 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h3><p>因为 Elasticsearch 解压即可运行，无需安装，为了方便管理，我们把 Elasticsearch 放到 <code>/opt</code> 目录下。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">cd /opt</span><br><span class="line">wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-7.12.2-linux-x86_64.tar.gz</span><br><span class="line">wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-7.12.2-linux-x86_64.tar.gz.sha512</span><br><span class="line">shasum -a 512 -c elasticsearch-7.12.2-linux-x86_64.tar.gz.sha512</span><br><span class="line">tar -xzf elasticsearch-7.12.2-linux-x86_64.tar.gz</span><br><span class="line">chmod -R elastic:elastic /opt/elasticsearch-7.12.2</span><br></pre></td></tr></table></figure>
+
+<h3 id="配置"><a href="#配置" class="headerlink" title="配置"></a>配置</h3><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">cd /opt/elasticsearch-7.12.2</span><br><span class="line">vi config/elasticsearch.yml</span><br><span class="line"><span class="meta">#</span><span class="bash"> Cluster 段</span></span><br><span class="line">cluster.name: my_elastic_cluster</span><br><span class="line"><span class="meta">#</span><span class="bash"> Node 段，三台服务器根据自己的节点名字配置</span></span><br><span class="line">node.name: node-01</span><br><span class="line"><span class="meta">#</span><span class="bash"> Path 段，配置相关目录，用到准备工作提前建好的目录</span></span><br><span class="line">path.data: /opt/elastic/data</span><br><span class="line">path.logs: /opt/elastic/logs</span><br><span class="line"><span class="meta">#</span><span class="bash"> Network 段，三台服务器根据自己的网络进行配置</span></span><br><span class="line">network.host: 192.168.3.100</span><br><span class="line"><span class="meta">#</span><span class="bash"> http 协议端口</span></span><br><span class="line">http.port: 9200</span><br><span class="line"><span class="meta">#</span><span class="bash"> tcp 端口，可用于节点间交互</span></span><br><span class="line">transport.tcp.port: 9300</span><br><span class="line"><span class="meta">#</span><span class="bash"> Discovery 段</span></span><br><span class="line">discovery.seed_hosts: [&quot;192.168.3.100:9300&quot;, &quot;192.168.3.101:9300&quot;, &quot;192.168.3.102:9300&quot;]</span><br><span class="line">cluster.initial_master_nodes: [&quot;node-01&quot;]</span><br></pre></td></tr></table></figure>
+
+<h1 id="启动与停止"><a href="#启动与停止" class="headerlink" title="启动与停止"></a>启动与停止</h1><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 切换到 elastic 用户</span></span><br><span class="line">su elastic</span><br><span class="line">cd /opt/elasticsearch-7.12.2</span><br><span class="line"><span class="meta">#</span><span class="bash"> 后台运行并将进程 id 保存到 /opt/elasticsearch-7.12.2/pid 文件</span></span><br><span class="line">./bin/elasticsearch -d -p pid</span><br><span class="line"><span class="meta">#</span><span class="bash"> 停止</span></span><br><span class="line">pkill -F pid</span><br></pre></td></tr></table></figure>
+
+<p>启动后，即可访问 <code>http://192.168.3.100:9200</code> 查看运行状态信息。</p>
+<h1 id="开启基础用户认证"><a href="#开启基础用户认证" class="headerlink" title="开启基础用户认证"></a>开启基础用户认证</h1><h3 id="证书的创建与配置"><a href="#证书的创建与配置" class="headerlink" title="证书的创建与配置"></a>证书的创建与配置</h3><p>以下所有操作都是在 elastic 用户下。</p>
+<h5 id="192-168-3-100"><a href="#192-168-3-100" class="headerlink" title="192.168.3.100"></a>192.168.3.100</h5><ol>
+<li>创建一个放证书的目录，统一管理。</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cd /opt/elasticsearch-7.12.2</span><br><span class="line">mkdir config/certs</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>生成 ca 证书。</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./bin/elasticsearch-certutil ca --out config/certs/my-elastic-ca.p12</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>为本节点生成证书。</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./bin/elasticsearch-certutil --ca config/certs/my-elastic-ca.p12 --ip 192.168.3.100 --out config/certs/node-01.p12</span><br></pre></td></tr></table></figure>
+
+<ol start="4">
+<li>配置证书，在配置文件 <code>config/elasticsearch.yml</code> 中添加如下配置：</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">xpack.security.enabled: true</span><br><span class="line">xpack.security.transport.ssl.enabled: true</span><br><span class="line">xpack.security.transport.ssl.keystore.path: certs&#x2F;$&#123;node.name&#125;.p12</span><br><span class="line">xpack.security.transport.ssl.truststore.path: certs&#x2F;$&#123;node.name&#125;.p12</span><br></pre></td></tr></table></figure>
+
+<p><code>$&#123;node.name&#125;</code> 变量为当前节点的名称。如果你的证书并没有这样命名，这里修改成实际的证书文件名。</p>
+<ol start="5">
+<li>为其它节点生成证书，该操作会在当前目录下生成一个压缩文件 <code>certificate-bundle.zip</code>。</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./bin/elasticsearch-certutil cert --ca config/certs/my-elastic-ca.p12 --multiple</span><br></pre></td></tr></table></figure>
+
+<ol start="6">
+<li>解压文件会得到以其它节点名称命名的文件夹，把各个节点的证书放到各个节点服务器上待处理。</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">unzip certificate-bundle.zip</span><br><span class="line">scp node-02 root@192.168.3.101:/</span><br><span class="line">scp node-03 root@192.168.3.102:/</span><br></pre></td></tr></table></figure>
+
+<h5 id="192-168-3-101-及-192-168-3-102"><a href="#192-168-3-101-及-192-168-3-102" class="headerlink" title="192.168.3.101 及 192.168.3.102"></a>192.168.3.101 及 192.168.3.102</h5><ol>
+<li><p>创建一个证书文件目录，参考主节点上操作，并将传送过来的证书文件放在此处。</p>
+</li>
+<li><p>配置证书，参考主节点上的证书配置。</p>
+</li>
+</ol>
+<h3 id="为-Elasticsearch-内部用户设置密码"><a href="#为-Elasticsearch-内部用户设置密码" class="headerlink" title="为 Elasticsearch 内部用户设置密码"></a>为 Elasticsearch 内部用户设置密码</h3><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./bin/elasticsearch-setup-passwords interactive</span><br></pre></td></tr></table></figure>
+
+<p>服务重启后，再次访问 Elasticsearch 将会弹出用户认证界面。</p>
+
+</article>
+
+    <div class="pagenator post-pagenator">
+    
+    
+        <a class="extend prev post-prev" href="/2021/04/29/hello-world/">上一篇</a>
+    
+
+    
+    <p>上次更新 2021-04-29</p>
+    
+    
+    </div>
+
+    </div>
+    <div class="footer">
+        <div class="container">
+    <div class="social">
+	<ul class="social-list">
+		
+			
+				
+				
+				<li>
+					<a href="mailto:1178752402@qq.com" title="email" target="_blank">
+					<i class="fa fa-email"></i>
+					</a>
+				</li>
+			
+		
+			
+		
+			
+		
+			
+		
+			
+		
+			
+		
+			
+				
+				<li>
+					<a href="https://github.com/CaiChenghan" title="github" target="_self">
+					<i class="fa fa-github"></i>
+					</a>
+				</li>
+			
+		
+			
+		
+			
+		
+			
+		
+			
+				
+				<li>
+					<a href="https://www.jianshu.com/u/565c8e790605" title="jianshu" target="_self">
+					<i class="fa fa-jianshu"></i>
+					</a>
+				</li>
+			
+		
+			
+		
+			
+		
+			
+		
+	</ul>
+</div>
+    <div class="copyright">
+        <span>
+            
+            
+            
+                © jay4497 2017 - 2021
+            
+        </span>
+    </div>
+    <div class="power">
+        <span>
+            Powered by <a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a> & <a target="_blank" rel="noopener" href="https://github.com/CaiChenghan/iLiKE">iLiKE Theme</a>
+        </span>
+    </div>
+    <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.js"></script>
+    <!--page counter part-->
+<script>
+function addCount (Counter) {
+    url=$('.article-date').attr('href').trim();
+    title = $('.article-title').text().trim();
+    var query = new AV.Query(Counter);
+    //use url as unique idnetfication
+    query.equalTo("url",url);
+    query.find({
+        success: function(results) {
+            if (results.length>0) {
+                var counter=results[0];
+                counter.fetchWhenSave(true); //get recent result
+                counter.increment("time");
+                counter.save();
+            } else {
+                var newcounter=new Counter();
+                newcounter.set("title",title);
+                newcounter.set("url",url);
+                newcounter.set("time",1);
+                newcounter.save(null,{
+                    success: function(newcounter) {
+                        //alert('New object created');
+                    }, error: function(newcounter,error) {
+                        alert('Failed to create');
+                    }
+                })
+            }
+        },
+        error: function(error) {
+            //find null is not a error
+            alert('Error:'+error.code+" "+error.message);
+        }
+    });
+}
+$(function() {
+    var Counter=AV.Object.extend("Counter");
+    //only increse visit counting when intering a page
+    if ($('.article-title').length == 1) {
+       addCount(Counter);
+    }
+    var query=new AV.Query(Counter);
+    query.descending("time");
+    // the sum of popular posts
+    query.limit(10); 
+    query.find({
+        success: function(results) {
+                for(var i=0;i<results.length;i++) {
+                    var counter=results[i];
+                    title=counter.get("title");
+                    url=counter.get("url");
+                    time=counter.get("time");
+                    // add to the popularlist widget
+                    showcontent=title+" ("+time+")";
+                    //notice the "" in href
+                    $('.popularlist').append('<li><a href="'+url+'">'+showcontent+'</a></li>');
+                }
+            },
+        error: function(error) {
+            alert("Error:"+error.code+" "+error.message);
+        }
+    });
+});
+</script>
+</div>
+    </div>
+</body>
+</html>
