@@ -35,7 +35,7 @@ groupadd elastic
 # 创建用户
 adduser -g elastic elastic
 # 设置密码
-passwd es
+passwd elastic
 # 赋予 sudo 权限
 chmod +w /etc/sudoers
 vi /etc/sudoers
@@ -55,7 +55,7 @@ mkdir /opt/elastic/data
 # logs 目录
 mkdir /opt/elastic/logs
 # 更改所有者
-chmod -R elastic:elastic /opt/elastic
+chown -R elastic:elastic /opt/elastic
 ```
 
 ### 防火墙相关
@@ -74,7 +74,7 @@ wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-7.12.2-l
 wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-7.12.2-linux-x86_64.tar.gz.sha512
 shasum -a 512 -c elasticsearch-7.12.2-linux-x86_64.tar.gz.sha512
 tar -xzf elasticsearch-7.12.2-linux-x86_64.tar.gz
-chmod -R elastic:elastic /opt/elasticsearch-7.12.2
+chown -R elastic:elastic /opt/elasticsearch-7.12.2
 ```
 
 ### 配置
@@ -139,6 +139,7 @@ mkdir config/certs
 
 ```shell
 ./bin/elasticsearch-certutil --ca config/certs/my-elastic-ca.p12 --ip 192.168.3.100 --out config/certs/node-01.p12
+# 在接下来的交互中，当设置密码时，留空直接回车
 ```
 
 4. 配置证书，在配置文件 `config/elasticsearch.yml` 中添加如下配置：
@@ -156,14 +157,15 @@ xpack.security.transport.ssl.truststore.path: certs/${node.name}.p12
 
 ```shell
 ./bin/elasticsearch-certutil cert --ca config/certs/my-elastic-ca.p12 --multiple
+# 在接下来的交互中，当设置密码时，留空直接回车
 ```
 
 6. 解压文件会得到以其它节点名称命名的文件夹，把各个节点的证书放到各个节点服务器上待处理。
 
 ```shell
 unzip certificate-bundle.zip
-scp node-02 root@192.168.3.101:/
-scp node-03 root@192.168.3.102:/
+scp -r node-02 root@192.168.3.101:/
+scp -r node-03 root@192.168.3.102:/
 ```
 
 ##### 192.168.3.101 及 192.168.3.102
