@@ -123,7 +123,7 @@
 <ol start="3">
 <li>为本节点生成证书。</li>
 </ol>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">./bin/elasticsearch-certutil --ca config/certs/my-elastic-ca.p12 --ip 192.168.3.100 --out config/certs/node-01.p12</span><br><span class="line"><span class="meta">#</span><span class="bash"> 在接下来的交互中，当设置密码时，留空直接回车</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">./bin/elasticsearch-certutil cert --ca config/certs/my-elastic-ca.p12 --ip 192.168.3.100 --out config/certs/node-01.p12</span><br><span class="line"><span class="meta">#</span><span class="bash"> 在接下来的交互中，当设置密码时，留空直接回车</span></span><br></pre></td></tr></table></figure>
 
 <ol start="4">
 <li>配置证书，在配置文件 <code>config/elasticsearch.yml</code> 中添加如下配置：</li>
@@ -160,7 +160,7 @@
     
 
     
-    <p>上次更新 2022-01-20</p>
+    <p>上次更新 2022-05-11</p>
     
     
     </div>
