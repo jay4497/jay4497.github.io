@@ -138,7 +138,7 @@ mkdir config/certs
 3. 为本节点生成证书。
 
 ```shell
-./bin/elasticsearch-certutil --ca config/certs/my-elastic-ca.p12 --ip 192.168.3.100 --out config/certs/node-01.p12
+./bin/elasticsearch-certutil cert --ca config/certs/my-elastic-ca.p12 --ip 192.168.3.100 --out config/certs/node-01.p12
 # 在接下来的交互中，当设置密码时，留空直接回车
 ```
 
